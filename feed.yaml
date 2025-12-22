@@ -1,0 +1,6 @@
+title: Central Garden & Pet Stock News
+link: https://finance.yahoo.com/quote/CENTA
+description: Automated RSS feed tracking news for Central Garden & Pet (CENTA / CENT)
+language: en-us
+ticker: CENTA
+source_feed: https://feeds.finance.yahoo.com/rss/2.0/headline?s=CENTA&region=US&lang=en-US
