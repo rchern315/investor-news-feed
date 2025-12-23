@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Central Garden &amp; Pet — Investor News Alerts</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; margin: 0; line-height: 1.5; }
+    header { padding: 28px 18px; border-bottom: 1px solid rgba(128,128,128,.25); }
+    .wrap { max-width: 980px; margin: 0 auto; }
+    h1 { margin: 0 0 6px; font-size: 22px; }
+    .sub { margin: 0; opacity: .8; }
+    .controls { display:flex; gap:12px; flex-wrap:wrap; margin-top:14px; align-items:center; }
+    input {
+      padding: 10px 12px; border: 1px solid rgba(128,128,128,.35);
+      border-radius: 12px; width: min(520px, 100%);
+    }
+    main { padding: 18px; }
+    .meta { display:flex; gap:10px; flex-wrap:wrap; opacity:.75; font-size:13px; }
+    .list { display:grid; gap:12px; margin-top:14px; }
+    .card {
+      padding: 14px; border: 1px solid rgba(128,128,128,.25);
+      border-radius: 14px; background: rgba(128,128,128,.07);
+    }
+    .title { font-size: 16px; margin: 0 0 6px; }
+    .date { font-size: 13px; opacity: .75; margin: 0; }
+    a { color: inherit; }
+    a:hover { text-decoration: underline; }
+    .pill {
+      font-size: 12px; padding: 5px 10px; border-radius: 999px;
+      border: 1px solid rgba(128,128,128,.25); background: rgba(128,128,128,.07);
+      text-decoration: none;
+    }
+    footer { padding: 18px; border-top: 1px solid rgba(128,128,128,.25); opacity: .8; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>Central Garden &amp; Pet — Investor News Alerts</h1>
+      <p class="sub">Auto-updated headlines for CENTA / CENT from your generated RSS feed.</p>
+
+      <div class="controls">
+        <input id="search" type="search" placeholder="Search headlines (earnings, acquisition, analyst…)" />
+        <span class="pill" id="count">Loading…</span>
+        <a class="pill" href="./news-feed.xml" target="_blank" rel="noreferrer">View RSS XML</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <div class="meta" id="meta"></div>
+      <div class="list" id="list"></div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      Built with Python + GitHub Actions. Source: Yahoo Finance RSS.
+    </div>
+  </footer>
+
+<script>
+  const FEED_URL = "./news-feed.xml";
+  const listEl = document.getElementById("list");
+  const metaEl = document.getElementById("meta");
+  const searchEl = document.getElementById("search");
+  const countEl = document.getElementById("count");
+
+  let items = [];
+
+  function formatDate(pubDate) {
+    const d = new Date(pubDate);
+    if (isNaN(d.getTime())) return pubDate || "";
+    return d.toLocaleString(undefined, {
+      year: "numeric", month: "short", day: "2-digit",
+      hour: "2-digit", minute: "2-digit"
+    });
+  }
+
+  function render(filterText = "") {
+    const q = filterText.trim().toLowerCase();
+    const filtered = q ? items.filter(i => (i.title || "").toLowerCase().includes(q)) : items;
+
+    countEl.textContent = `${filtered.length} article${filtered.length === 1 ? "" : "s"}`;
+
+    listEl.innerHTML = filtered.map(i => `
+      <article class="card">
+        <h2 class="title">
+          <a href="${i.link}" target="_blank" rel="noreferrer">${i.title}</a>
+        </h2>
+        <p class="date">${formatDate(i.pubDate)}</p>
+      </article>
+    `).join("");
+  }
+
+  async function loadFeed() {
+    const res = await fetch(FEED_URL, { cache: "no-store" });
+    if (!res.ok) throw new Error(`Failed to fetch feed: ${res.status}`);
+
+    const xmlText = await res.text();
+    const xml = new DOMParser().parseFromString(xmlText, "application/xml");
+
+    const channelTitle = xml.querySelector("channel > title")?.textContent || "News Feed";
+    const channelDesc  = xml.querySelector("channel > description")?.textContent || "";
+    const channelLink  = xml.querySelector("channel > link")?.textContent || "";
+
+    metaEl.innerHTML = `
+      <span class="pill">${channelTitle}</span>
+      ${channelDesc ? `<span class="pill">${channelDesc}</span>` : ""}
+      ${channelLink ? `<a class="pill" href="${channelLink}" target="_blank" rel="noreferrer">Quote Page</a>` : ""}
+    `;
+
+    items = Array.from(xml.querySelectorAll("channel > item")).map(item => ({
+      title: item.querySelector("title")?.textContent?.trim() || "",
+      link: item.querySelector("link")?.textContent?.trim() || "",
+      pubDate: item.querySelector("pubDate")?.textContent?.trim() || ""
+    }));
+
+    render();
+  }
+
+  searchEl.addEventListener("input", (e) => render(e.target.value));
+
+  loadFeed().catch(err => {
+    countEl.textContent = "Error";
+    listEl.innerHTML = `<div class="card">⚠️ ${err.message}</div>`;
+  });
+</script>
+</body>
+</html>
