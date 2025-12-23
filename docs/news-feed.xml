@@ -1,14 +1,19 @@
 <?xml version="1.0" ?>
 <rss version="2.0">
   <channel>
-    <title>Central Garden &amp; Pet Investor News</title>
+    <title>Central Garden &amp; Pet — Investor News Alerts</title>
     <link>https://finance.yahoo.com/quote/CENTA</link>
-    <description>Automated RSS feed tracking news for Central Garden &amp; Pet (CENTA / CENT)</description>
+    <description>Automated investor news feed for Central Garden &amp; Pet (CENTA / CENT)</description>
     <language>en-us</language>
     <item>
       <title>Does Central Garden &amp; Pet Offer Value After Recent Share Price Slide?</title>
       <link>https://finance.yahoo.com/news/does-central-garden-pet-offer-120846644.html?.tsrc=rss</link>
       <pubDate>Sat, 20 Dec 2025 12:08:46 +0000</pubDate>
+    </item>
+    <item>
+      <title>Why This 1 Momentum Stock Could Be a Great Addition to Your Portfolio</title>
+      <link>https://finance.yahoo.com/news/why-1-momentum-stock-could-145002115.html?.tsrc=rss</link>
+      <pubDate>Fri, 19 Dec 2025 14:50:02 +0000</pubDate>
     </item>
     <item>
       <title>CENT Strengthens Animal Health Portfolio With Champion USA Acquisition</title>
@@ -29,6 +34,11 @@
       <title>Central Garden &amp; Pet (CENT) Valuation Check After Recent Share Price Weakness</title>
       <link>https://finance.yahoo.com/news/central-garden-pet-cent-valuation-220850572.html?.tsrc=rss</link>
       <pubDate>Wed, 10 Dec 2025 22:08:50 +0000</pubDate>
+    </item>
+    <item>
+      <title>Why Central Garden (CENT) is a Top Growth Stock for the Long-Term</title>
+      <link>https://finance.yahoo.com/news/why-central-garden-cent-top-144502444.html?.tsrc=rss</link>
+      <pubDate>Wed, 10 Dec 2025 14:45:02 +0000</pubDate>
     </item>
     <item>
       <title>What Do Analysts Think About Central Garden &amp; Pet Company (CENT)?</title>
@@ -56,6 +66,16 @@
       <pubDate>Mon, 01 Dec 2025 17:18:41 +0000</pubDate>
     </item>
     <item>
+      <title>Sector Update: Consumer Stocks Higher Late Afternoon</title>
+      <link>https://finance.yahoo.com/news/sector-consumer-stocks-higher-afternoon-205922223.html?.tsrc=rss</link>
+      <pubDate>Tue, 25 Nov 2025 20:59:22 +0000</pubDate>
+    </item>
+    <item>
+      <title>Sector Update: Consumer Stocks Gain Tuesday Afternoon</title>
+      <link>https://finance.yahoo.com/news/sector-consumer-stocks-gain-tuesday-184259655.html?.tsrc=rss</link>
+      <pubDate>Tue, 25 Nov 2025 18:42:59 +0000</pubDate>
+    </item>
+    <item>
       <title>Central Garden &amp; Pet Posts Narrower-Than-Expected Q4 Loss, Sales Rise</title>
       <link>https://finance.yahoo.com/news/central-garden-pet-posts-narrower-135700614.html?.tsrc=rss</link>
       <pubDate>Tue, 25 Nov 2025 13:57:00 +0000</pubDate>
@@ -73,6 +93,11 @@
     <item>
       <title>Central Garden (CENTA) Reports Q4 Loss, Tops Revenue Estimates</title>
       <link>https://finance.yahoo.com/news/central-garden-centa-reports-q4-221002235.html?.tsrc=rss</link>
+      <pubDate>Mon, 24 Nov 2025 22:10:02 +0000</pubDate>
+    </item>
+    <item>
+      <title>Central Garden (CENT) Reports Q4 Loss, Beats Revenue Estimates</title>
+      <link>https://finance.yahoo.com/news/central-garden-cent-reports-q4-221002615.html?.tsrc=rss</link>
       <pubDate>Mon, 24 Nov 2025 22:10:02 +0000</pubDate>
     </item>
     <item>
