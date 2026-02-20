@@ -1,5 +1,5 @@
 Central Garden & Pet — Investor News Alerts
-<img src="images/stock-feed.png" width="250" alt="Stock market news illustration">
+https://rchern315.github.io/investor-news-feed/
 
 This repository powers an automated investor news alert system for Central Garden & Pet (CENTA / CENT). It aggregates the latest company-related news using public Yahoo Finance RSS sources and publishes it as a clean, standardized RSS feed.
 
