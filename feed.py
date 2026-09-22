@@ -3,7 +3,9 @@ import requests
 from xml.dom import minidom
 import xml.etree.ElementTree as ET
 import sys
-from datetime import datetime
+import os
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 
 # -----------------------------
 # Load configuration
@@ -67,17 +69,29 @@ if not all_items:
 # -----------------------------
 def parse_pubdate(pubdate_str: str) -> datetime:
     """
-    RSS pubDate often looks like:
+    Parse common RSS/RFC 2822 pubDate values for sorting.
+
+    Examples:
     'Sat, 20 Dec 2025 12:08:46 +0000'
-    We'll best-effort parse it for sorting.
+    'Sat, 20 Dec 2025 12:08:46 GMT'
+
+    Always return a timezone-aware datetime so sorting cannot fail
+    because of comparisons between naive and aware datetime objects.
     """
     if not pubdate_str:
-        return datetime.min
+        return datetime.min.replace(tzinfo=timezone.utc)
+
     try:
-        # Common RFC 2822 style date
-        return datetime.strptime(pubdate_str, "%a, %d %b %Y %H:%M:%S %z")
-    except Exception:
-        return datetime.min
+        parsed = parsedate_to_datetime(pubdate_str)
+
+        # Some feeds may provide a date without timezone information.
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+
+        return parsed
+    except (ValueError, TypeError, OverflowError):
+        return datetime.min.replace(tzinfo=timezone.utc)
+
 
 deduped = {}
 for item in all_items:
@@ -95,7 +109,10 @@ for item in all_items:
         deduped[key] = {"title": title, "link": link, "pubDate": pubdate}
 
 items_list = list(deduped.values())
-items_list.sort(key=lambda x: parse_pubdate(x.get("pubDate", "")), reverse=True)
+items_list.sort(
+    key=lambda x: parse_pubdate(x.get("pubDate", "")),
+    reverse=True
+)
 
 # Limit how many items to publish
 max_items = int(config.get("max_items", 40))
@@ -124,9 +141,8 @@ for i in items_list:
 rough_xml = ET.tostring(rss, encoding="utf-8")
 pretty_xml = minidom.parseString(rough_xml).toprettyxml(indent="  ")
 
-# Ensure docs/ exists if you’re writing there (useful locally)
-# (GitHub Actions will have it if it’s committed, but this helps local runs.)
-import os
+# Ensure docs/ exists if you're writing there (useful locally)
+# (GitHub Actions will have it if it's committed, but this helps local runs.)
 os.makedirs(os.path.dirname(output_file) or ".", exist_ok=True)
 
 with open(output_file, "w", encoding="utf-8") as f:
