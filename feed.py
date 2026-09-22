@@ -13,96 +13,86 @@ from email.utils import parsedate_to_datetime
 with open("feed.yaml", "r", encoding="utf-8") as file:
     config = yaml.safe_load(file)
 
-# Support BOTH styles:
-# - source_feed: "https://..."
-# - source_feeds: ["https://...", "https://..."]
 feed_urls = []
 
 if "source_feeds" in config and isinstance(config["source_feeds"], list):
-    feed_urls = [u for u in config["source_feeds"] if isinstance(u, str) and u.strip()]
+    feed_urls = [
+        u.strip()
+        for u in config["source_feeds"]
+        if isinstance(u, str) and u.strip()
+    ]
 elif "source_feed" in config and isinstance(config["source_feed"], str):
-    feed_urls = [config["source_feed"].strip()]
+    if config["source_feed"].strip():
+        feed_urls = [config["source_feed"].strip()]
 
 if not feed_urls:
-    print("❌ No feed URLs found. Add 'source_feed' or 'source_feeds' to feed.yaml")
-    sys.exit(0)
+    print("❌ No feed URLs found in feed.yaml")
+    sys.exit(1)
 
-# Where we write the final RSS for GitHub Pages
 output_file = config.get("output_file", "docs/news-feed.xml")
+max_items = int(config.get("max_items", 40))
 
 # -----------------------------
-# Helpers for RSS + Atom feeds
+# Helpers
 # -----------------------------
 def local_name(tag):
-    """Return an XML tag name without its namespace."""
+    if not isinstance(tag, str):
+        return ""
     return tag.split("}", 1)[-1] if "}" in tag else tag
 
 
-def child_text(element, names):
-    """
-    Return the text of the first direct child whose local tag name
-    matches one of the supplied names.
-    """
+def direct_child_text(element, accepted_names):
     for child in list(element):
-        if local_name(child.tag) in names:
-            return (child.text or "").strip()
+        if local_name(child.tag).lower() in accepted_names:
+            text = "".join(child.itertext()).strip()
+            if text:
+                return text
     return ""
 
 
-def entry_link(element):
-    """
-    Read a link from either:
-    - RSS:  <link>https://example.com/article</link>
-    - Atom: <link href="https://example.com/article" />
-    """
+def get_link(element):
     fallback = ""
 
     for child in list(element):
-        if local_name(child.tag) != "link":
+        if local_name(child.tag).lower() != "link":
             continue
 
         href = (child.attrib.get("href") or "").strip()
         rel = (child.attrib.get("rel") or "").strip().lower()
 
-        # Prefer Atom's normal article URL.
-        if href and (not rel or rel == "alternate"):
+        if href and rel in ("", "alternate"):
             return href
 
         if href and not fallback:
             fallback = href
 
-        text_link = (child.text or "").strip()
-        if text_link and not fallback:
-            fallback = text_link
+        text_value = "".join(child.itertext()).strip()
+        if text_value and not fallback:
+            fallback = text_value
+
+    # Some feeds use <guid> as the article URL.
+    if not fallback:
+        fallback = direct_child_text(element, {"guid"})
 
     return fallback
 
 
-def parse_pubdate(pubdate_str: str) -> datetime:
-    """
-    Parse both RSS/RFC 2822 and Atom/ISO-8601 dates.
-
-    Always return a timezone-aware datetime so sorting cannot fail.
-    """
-    if not pubdate_str:
+def parse_pubdate(value):
+    if not value:
         return datetime.min.replace(tzinfo=timezone.utc)
 
-    # RSS/RFC 2822:
-    # Sat, 20 Dec 2025 12:08:46 +0000
+    value = value.strip()
+
     try:
-        parsed = parsedate_to_datetime(pubdate_str)
+        parsed = parsedate_to_datetime(value)
         if parsed.tzinfo is None:
             parsed = parsed.replace(tzinfo=timezone.utc)
         return parsed
     except (ValueError, TypeError, OverflowError):
         pass
 
-    # Atom/ISO-8601:
-    # 2025-12-20T12:08:46Z
-    # 2025-12-20T12:08:46+00:00
     try:
-        iso_value = pubdate_str.replace("Z", "+00:00")
-        parsed = datetime.fromisoformat(iso_value)
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
         if parsed.tzinfo is None:
             parsed = parsed.replace(tzinfo=timezone.utc)
         return parsed
@@ -110,73 +100,127 @@ def parse_pubdate(pubdate_str: str) -> datetime:
         return datetime.min.replace(tzinfo=timezone.utc)
 
 
-def to_rss_pubdate(pubdate_str: str) -> str:
-    """
-    Keep RSS dates as-is when possible.
-    Convert Atom ISO dates to an RSS-compatible date string.
-    """
-    if not pubdate_str:
+def rss_date(value):
+    if not value:
         return ""
 
-    try:
-        parsed = parse_pubdate(pubdate_str)
-        if parsed == datetime.min.replace(tzinfo=timezone.utc):
-            return pubdate_str
-        return parsed.strftime("%a, %d %b %Y %H:%M:%S %z")
-    except Exception:
-        return pubdate_str
+    parsed = parse_pubdate(value)
+
+    if parsed == datetime.min.replace(tzinfo=timezone.utc):
+        return value
+
+    return parsed.strftime("%a, %d %b %Y %H:%M:%S %z")
 
 
 # -----------------------------
-# Fetch external RSS / Atom feeds
+# Fetch feeds
 # -----------------------------
 headers = {
-    "User-Agent": "Mozilla/5.0 (compatible; GitHubActionsBot/1.0)",
-    "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 Chrome/120 Safari/537.36"
+    ),
+    "Accept": (
+        "application/rss+xml, application/atom+xml, "
+        "application/xml, text/xml, */*"
+    ),
 }
 
 all_items = []
 failed = 0
 
 for url in feed_urls:
-    print(f"🔎 Fetching: {url}")
+    print("")
+    print("=" * 70)
+    print(f"🔎 SOURCE FEED: {url}")
 
     try:
-        response = requests.get(url, headers=headers, timeout=15)
-        response.raise_for_status()
-    except requests.RequestException as e:
-        print(f"⚠️ Network/HTTP error for {url}: {e}")
+        response = requests.get(
+            url,
+            headers=headers,
+            timeout=30,
+            allow_redirects=True,
+        )
+    except requests.RequestException as exc:
+        print(f"❌ Request failed: {exc}")
+        failed += 1
+        continue
+
+    print(f"HTTP status: {response.status_code}")
+    print(f"Final URL: {response.url}")
+    print(f"Content-Type: {response.headers.get('Content-Type', '(missing)')}")
+    print(f"Response bytes: {len(response.content)}")
+
+    if response.status_code != 200:
+        print("❌ Feed did not return HTTP 200.")
+        print("Response preview:")
+        print(response.text[:1000])
+        failed += 1
+        continue
+
+    if not response.content.strip():
+        print("❌ Feed returned an empty response.")
         failed += 1
         continue
 
     try:
-        external_feed = ET.fromstring(response.content)
-    except ET.ParseError as e:
-        print(f"⚠️ Could not parse XML from {url}: {e}")
+        root = ET.fromstring(response.content)
+    except ET.ParseError as exc:
+        print(f"❌ Response is not valid XML: {exc}")
+        print("Response preview:")
+        print(response.text[:1500])
         failed += 1
         continue
 
-    feed_items = []
+    print(f"XML root tag: {root.tag}")
 
-    # Find both RSS <item> and Atom <entry>, regardless of XML namespace.
-    for element in external_feed.iter():
-        name = local_name(element.tag)
+    # Collect article-like nodes regardless of namespace.
+    candidates = []
 
-        if name not in ("item", "entry"):
-            continue
+    for element in root.iter():
+        name = local_name(element.tag).lower()
+        if name in ("item", "entry"):
+            candidates.append(element)
 
-        title = child_text(element, {"title"})
-        link = entry_link(element)
-        pubdate = child_text(
+    print(f"Article nodes found: {len(candidates)}")
+
+    # If none were found, show the first several XML tag names.
+    if not candidates:
+        tag_names = []
+        for element in root.iter():
+            name = local_name(element.tag)
+            if name and name not in tag_names:
+                tag_names.append(name)
+            if len(tag_names) >= 30:
+                break
+
+        print("⚠️ No <item> or <entry> elements found.")
+        print(f"Tags seen in feed: {tag_names}")
+        print("XML preview:")
+        print(response.text[:2000])
+        continue
+
+    feed_count = 0
+
+    for element in candidates:
+        title = direct_child_text(element, {"title"})
+        link = get_link(element)
+        pubdate = direct_child_text(
             element,
-            {"pubDate", "published", "updated", "date", "dc:date"},
+            {
+                "pubdate",
+                "published",
+                "updated",
+                "date",
+                "issued",
+                "created",
+            },
         )
 
-        # Ignore completely empty entries.
         if not title and not link:
             continue
 
-        feed_items.append(
+        all_items.append(
             {
                 "title": title,
                 "link": link,
@@ -184,31 +228,41 @@ for url in feed_urls:
             }
         )
 
-    print(f"✅ Found {len(feed_items)} article(s) in this feed.")
-    all_items.extend(feed_items)
+        feed_count += 1
 
-if not all_items:
-    print("⚠️ No articles found in any source feed. No output written.")
-    print("ℹ️ Check the feed URLs and the GitHub Actions log for the per-feed article counts.")
-    sys.exit(0)
+        # Print a few examples so the Actions log shows what is being read.
+        if feed_count <= 3:
+            print(
+                f"  ARTICLE {feed_count}: "
+                f"title={title!r}, link={link!r}, pubDate={pubdate!r}"
+            )
+
+    print(f"✅ Usable articles collected from this feed: {feed_count}")
 
 # -----------------------------
-# Dedupe + sort items
+# Stop if nothing was collected
+# -----------------------------
+if not all_items:
+    print("")
+    print("❌ ZERO ARTICLES WERE COLLECTED.")
+    print("Look above for the SOURCE FEED diagnostics.")
+    sys.exit(1)
+
+# -----------------------------
+# Dedupe
 # -----------------------------
 deduped = {}
 
 for item in all_items:
-    link = (item.get("link") or "").strip()
     title = (item.get("title") or "").strip()
+    link = (item.get("link") or "").strip()
     pubdate = (item.get("pubDate") or "").strip()
 
-    # Use link as the primary unique key; fall back to title if needed.
-    key = link if link else title
+    key = link or title
 
     if not key:
         continue
 
-    # Keep the first occurrence.
     if key not in deduped:
         deduped[key] = {
             "title": title,
@@ -218,51 +272,72 @@ for item in all_items:
 
 items_list = list(deduped.values())
 
+# -----------------------------
+# Sort newest first
+# -----------------------------
 items_list.sort(
-    key=lambda x: parse_pubdate(x.get("pubDate", "")),
+    key=lambda item: parse_pubdate(item.get("pubDate", "")),
     reverse=True,
 )
 
-# Limit how many items to publish.
-max_items = int(config.get("max_items", 40))
 items_list = items_list[:max_items]
 
-print(f"📰 Publishing {len(items_list)} unique article(s).")
+print("")
+print(f"📰 Total unique articles being written: {len(items_list)}")
 
 # -----------------------------
-# Create RSS feed
+# Build RSS
 # -----------------------------
 rss = ET.Element("rss", version="2.0")
 channel = ET.SubElement(rss, "channel")
 
-ET.SubElement(channel, "title").text = config.get("title", "Investor News Alerts")
+ET.SubElement(channel, "title").text = config.get(
+    "title",
+    "Investor News Alerts",
+)
 ET.SubElement(channel, "link").text = config.get("link", "")
-ET.SubElement(channel, "description").text = config.get("description", "")
-ET.SubElement(channel, "language").text = config.get("language", "en-us")
+ET.SubElement(channel, "description").text = config.get(
+    "description",
+    "",
+)
+ET.SubElement(channel, "language").text = config.get(
+    "language",
+    "en-us",
+)
 
 for item in items_list:
     new_item = ET.SubElement(channel, "item")
 
-    ET.SubElement(new_item, "title").text = item.get("title", "")
-    ET.SubElement(new_item, "link").text = item.get("link", "")
+    ET.SubElement(new_item, "title").text = item["title"]
+    ET.SubElement(new_item, "link").text = item["link"]
 
-    pubdate = item.get("pubDate", "")
-    if pubdate:
-        ET.SubElement(new_item, "pubDate").text = to_rss_pubdate(pubdate)
+    if item["link"]:
+        ET.SubElement(new_item, "guid").text = item["link"]
+
+    if item["pubDate"]:
+        ET.SubElement(new_item, "pubDate").text = rss_date(
+            item["pubDate"]
+        )
 
 # -----------------------------
-# Write file (pretty printed)
+# Write XML
 # -----------------------------
 rough_xml = ET.tostring(rss, encoding="utf-8")
-pretty_xml = minidom.parseString(rough_xml).toprettyxml(indent="  ")
 
-# Ensure docs/ exists if you're writing there.
-os.makedirs(os.path.dirname(output_file) or ".", exist_ok=True)
+pretty_xml = minidom.parseString(
+    rough_xml
+).toprettyxml(indent="  ")
 
-with open(output_file, "w", encoding="utf-8") as f:
-    f.write(pretty_xml)
+output_dir = os.path.dirname(output_file)
 
-print(f"✅ Investor News RSS feed generated successfully: {output_file}")
+if output_dir:
+    os.makedirs(output_dir, exist_ok=True)
+
+with open(output_file, "w", encoding="utf-8") as file:
+    file.write(pretty_xml)
+
+print(f"✅ Generated: {output_file}")
+print(f"✅ Feed contains {len(items_list)} article(s).")
 
 if failed:
-    print(f"ℹ️ Note: {failed} feed(s) failed/skipped due to network, HTTP, or XML parse issues.")
+    print(f"⚠️ {failed} source feed(s) failed.")
