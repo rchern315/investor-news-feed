@@ -1,7 +1,9 @@
 Central Garden & Pet — Investor News Alerts
-https://rchern315.github.io/investor-news-feed/
 
-This repository powers an automated investor news alert system for Central Garden & Pet (CENTA / CENT). It aggregates the latest company-related news using public Yahoo Finance RSS sources and publishes it as a clean, standardized RSS feed.
+Published RSS feed:
+https://rchern315.github.io/investor-news-feed/news-feed.xml
+
+This repository powers an automated investor news alert system for Central Garden & Pet (CENTA / CENT). It aggregates the latest company-related news using public Yahoo Finance and Google News RSS sources and publishes it as a clean, standardized RSS feed.
 
 The project is built with Python, configured via YAML, and kept up to date automatically through GitHub Actions.
 
@@ -14,6 +16,14 @@ What This Project Does
 🤖 Runs on a scheduled basis using GitHub Actions
 
 📝 Commits updates only when new content is detected
+
+The generated feed is written to:
+
+docs/news-feed.xml
+
+GitHub Pages publishes that file at:
+
+https://rchern315.github.io/investor-news-feed/news-feed.xml
 
 Tech Stack
 
